@@ -20,7 +20,7 @@ namespace cityjsonToRevit
     {
         public List<string> Tiles(string url)
         {
-            List<string> tileNums = new List<string>();
+            List<string> tileUrls = new List<string>();
             try
             {
                 // Create an HttpClient and send the request
@@ -29,7 +29,7 @@ namespace cityjsonToRevit
                 dynamic responseJson = JsonConvert.DeserializeObject(response);
                 foreach (var feature in responseJson.features)
                 {
-                    tileNums.Add(feature.properties.tile_id.ToString());
+                    tileUrls.Add(feature.properties.cj_download.ToString());
                 }
             }
 
@@ -37,7 +37,7 @@ namespace cityjsonToRevit
             {
                 TaskDialog.Show("Error", "An error occurred while trying to download the files. Please check your internet connection and try again. ");
             }
-            return tileNums;
+            return tileUrls;
         }
 
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
@@ -73,8 +73,8 @@ namespace cityjsonToRevit
             {
                 return Result.Failed;
             }
-            List<string> tileNums = Tiles("https://data.3dbag.nl/api/BAG3D_v2/wfs?&request=GetFeature&typeName=AG3D_v2:bag_tiles_3k&outputFormat=json&bbox=" + boundingb(latDeg, lonDeg, boxlength));
-            if (tileNums.Count == 0)
+            List<string> tileUrls = Tiles("https://data.3dbag.nl/api/BAG3D/wfs?&request=GetFeature&typeName=BAG3D:Tiles&outputFormat=json&bbox=" + boundingb(latDeg, lonDeg, boxlength));
+            if (tileUrls.Count == 0)
                 return Result.Failed;
             string cjUrl = "https://data.3dbag.nl/cityjson/v210908_fd2cee53/3dbag_v210908_fd2cee53_";
             string lodSpec = lodBagSelecter();
@@ -93,18 +93,19 @@ namespace cityjsonToRevit
                 Material matDef
                   = matcollector.ToElements().Cast<Material>().FirstOrDefault(e => e.Name == "cj-Default");
 
-                foreach (string tileNum in tileNums)
+                foreach (string tileUrl in tileUrls)
                 {
-                    string cjUrlAll = cjUrl + tileNum + ".json" + ".gz";
+                    string cjName = tileUrl.Substring(tileUrl.LastIndexOf('/') + 1);
 
-                    string gzFile = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\TEMP\\" + tileNum + ".gz";
+                    string gzFile = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\TEMP\\" + cjName;
                     if (!File.Exists(gzFile))
                     {
                         try
                         {
                             using (var client2 = new WebClient())
                             {
-                                client2.DownloadFile(cjUrlAll, gzFile);
+                                string tUrl = tileUrl;
+                                client2.DownloadFile(tUrl, gzFile);
                             }
                         }
                         catch
@@ -122,12 +123,13 @@ namespace cityjsonToRevit
                         string json = sr.ReadToEnd();
                         dynamic jCity = JsonConvert.DeserializeObject(json);
                         int epsgNo = Program.epsgNum(jCity);
-                        double[] tranC = { jCity.transform.translate[0], jCity.transform.translate[1] };
+                        double[] tranC = { jCity.transform.translate[0], jCity.transform.translate[1], jCity.transform.translate[2] };
                         double[] tranR = { lonDeg, latDeg };
                         Program.PointProjectorRev(epsgNo, tranR);
                         double tranx = tranC[0] - tranR[0];
                         double trany = tranC[1] - tranR[1];
-                        List<XYZ> vertList = Program.vertBuilder(jCity, tranx, trany).Item1;
+                        double tranz = tranC[2];
+                        List<XYZ> vertList = Program.vertBuilder(jCity, tranx, trany, tranz).Item1;
                         List<bool> tags = inBB(vertList, boxlength);
 
                         List<string> paramets = Program.paramFinder(jCity);
@@ -172,7 +174,7 @@ namespace cityjsonToRevit
                                         Program.CreateTessellatedShape(doc, mat.Id, objProperties, vertList, attributeName, lodSpec, paramets, semanticParentInfo);
                                     }
                                 }
-                                    
+
 
                             }
                         }

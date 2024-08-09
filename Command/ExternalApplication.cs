@@ -39,8 +39,8 @@ namespace cityjsonToRevit
             Uri imagepath2 = new Uri(Path.Combine(ButtonIconsFolder, "images/eye.png"), UriKind.Absolute);
             BitmapImage image2 = new BitmapImage(imagepath2);
 
-            Uri imagepath3 = new Uri(Path.Combine(ButtonIconsFolder, "images/3dgeo.png"), UriKind.Absolute);
-            BitmapImage image3 = new BitmapImage(imagepath3);
+            //Uri imagepath3 = new Uri(Path.Combine(ButtonIconsFolder, "images/3dgeo.png"), UriKind.Absolute);
+            //BitmapImage image3 = new BitmapImage(imagepath3);
 
             PushButton pushButton1 = panel.AddItem(button1) as PushButton;
             pushButton1.LargeImage = image1;
